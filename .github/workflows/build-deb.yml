@@ -132,7 +132,7 @@ jobs:
         run: |
           cd build
           sha256sum -c SHA256SUMS
-          test "$(dpkg-deb -f "${{ needs.build.outputs.deb }}" Version)" = "${{ needs.build.outputs.version }}"
+          test "$(dpkg-deb -f "$(basename -- "${{ needs.build.outputs.deb }}")" Version)" = "${{ needs.build.outputs.version }}"
 
       - name: Create the GitHub release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
