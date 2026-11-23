@@ -43,7 +43,7 @@ curl --fail --location --silent --show-error --max-time 120 \
     --remote-name --output-dir "$work_dir" "$asset_base/$package"
 curl --fail --location --silent --show-error --max-time 60 \
     --remote-name --output-dir "$work_dir" "$asset_base/SHA256SUMS"
-(cd "$work_dir" && sha256sum -c SHA256SUMS)
+(cd "$work_dir" && sha256sum -c --ignore-missing SHA256SUMS)
 
 "${sudo[@]}" apt-get update
 "${sudo[@]}" apt-get install --yes "$work_dir/$package"

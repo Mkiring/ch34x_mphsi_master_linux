@@ -24,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/Mkiring/ch34x_mphsi_master_linux/ma
 或先下载最新 Release 中的 deb 和 `SHA256SUMS`，再执行：
 
 ```sh
-sha256sum -c SHA256SUMS
+sha256sum -c --ignore-missing SHA256SUMS
 curl -fsSLO https://raw.githubusercontent.com/Mkiring/ch34x_mphsi_master_linux/main/scripts/install-deb.sh
 bash install-deb.sh ./ch34x-mphsi-master-dkms_*_all.deb
 ```

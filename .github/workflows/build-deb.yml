@@ -99,7 +99,7 @@ jobs:
             printf 'Install on Ubuntu/Debian:\n\n```sh\nsudo apt update\nsudo apt install ./%s\n```\n\n' \
               "$(basename -- "${{ steps.package.outputs.deb }}")"
             printf 'Requires matching kernel headers and build tools. The module is rebuilt by DKMS after kernel upgrades.\n\n'
-            printf 'Verify downloads with the attached `SHA256SUMS`.\n'
+            printf 'Verify downloads with the attached `SHA256SUMS`; use `sha256sum -c --ignore-missing SHA256SUMS` when downloading only the deb.\n'
           } > build/RELEASE_NOTES.md
 
       - name: Upload the workflow artifact
