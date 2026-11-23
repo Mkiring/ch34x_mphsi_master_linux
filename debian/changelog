@@ -1,0 +1,6 @@
+ch34x-mphsi-master-dkms (1.7+git20261012.57be7ed01e2a) unstable; urgency=medium
+
+  * Package the upstream V1.7 driver as a DKMS module.
+  * Add reproducible Debian packaging and continuous-integration builds.
+
+ -- Mkirin <haohao.wang@seeed.cc>  Mon, 12 Oct 2026 17:06:28 +0800

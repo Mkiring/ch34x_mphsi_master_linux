@@ -1,0 +1,22 @@
+#!/usr/bin/make -f
+
+include /usr/share/dpkg/pkg-info.mk
+
+DKMS_SOURCE_DIR = usr/src/ch34x_mphsi_master-$(DEB_VERSION_UPSTREAM)
+
+%:
+	dh $@ --with dkms
+
+DKMS_SOURCE_FILES = driver/Makefile $(wildcard driver/*.c driver/*.h)
+
+override_dh_install:
+	dh_install dkms.conf $(DKMS_SOURCE_DIR)/
+	dh_install $(DKMS_SOURCE_FILES) $(DKMS_SOURCE_DIR)/driver/
+	dh_install README.md README_EN.md usr/share/doc/ch34x-mphsi-master-dkms
+
+override_dh_dkms:
+	dh_dkms -V$(DEB_VERSION_UPSTREAM) -- dkms.conf
+
+override_dh_clean:
+	dh_clean
+	$(MAKE) -C driver clean

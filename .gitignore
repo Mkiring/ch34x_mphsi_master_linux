@@ -1,0 +1,30 @@
+/build/
+/.claude/
+
+# Debhelper staging and generated metadata
+/debian/ch34x-mphsi-master-dkms/
+/debian/.debhelper/
+/debian/*.debhelper
+/debian/*.debhelper.log
+/debian/*.substvars
+/debian/debhelper-build-stamp
+/debian/files
+
+# Kernel module build products
+driver/*.o
+driver/*.ko
+driver/*.a
+driver/*.cmd
+driver/.*.cmd
+driver/*.mod
+driver/*.mod.c
+driver/*.mk
+driver/*.markers
+driver/Module.markers
+driver/Module.symvers
+driver/modules.order
+driver/.tmp_versions/
+
+# Locally compiled examples
+examples/i2c_example
+examples/spi_example

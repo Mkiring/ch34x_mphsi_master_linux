@@ -1,0 +1,46 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: '17 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the packaging branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Fast-forward tracked upstream files
+        run: |
+          upstream_commit=$(git ls-remote \
+            'https://github.com/WCHSoftGroup/ch34x_mphsi_master_linux.git' \
+            refs/heads/main | cut -f1)
+          test "$upstream_commit" = "$(cat UPSTREAM_COMMIT 2>/dev/null)" && exit 0
+          git fetch --no-tags --depth=1 \
+            'https://github.com/WCHSoftGroup/ch34x_mphsi_master_linux.git' \
+            "$upstream_commit"
+          test "$(git ls-tree --name-only "$upstream_commit")" = "$(printf '%s\n' README.md README_EN.md driver)"
+          git checkout "$upstream_commit" -- README.md README_EN.md driver
+          git clean -ffd -- README.md README_EN.md driver
+          printf 'UPSTREAM_COMMIT=%s\n' "$upstream_commit" >> "$GITHUB_ENV"
+
+      - name: Record the synchronized source revision
+        run: |
+          test -n "${UPSTREAM_COMMIT:-}" || exit 0
+          printf '%s\n' "$UPSTREAM_COMMIT" > UPSTREAM_COMMIT
+          git add -- README.md README_EN.md driver UPSTREAM_COMMIT
+          if git diff --cached --quiet; then
+            printf 'No upstream changes.\n'
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "Sync upstream at $UPSTREAM_COMMIT"
+          git push origin HEAD:main

@@ -1,0 +1,149 @@
+name: Build and publish DKMS deb
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: Upstream branch, tag or commit to package
+        required: false
+        default: main
+        type: string
+
+concurrency:
+  group: dkms-release-${{ github.repository }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.package.outputs.version }}
+      upstream_commit: ${{ steps.package.outputs.upstream_commit }}
+      deb: ${{ steps.package.outputs.deb }}
+      changed: ${{ steps.package.outputs.changed }}
+    steps:
+      - name: Check out packaging repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch the exact upstream revision
+        env:
+          UPSTREAM_REF: ${{ inputs.upstream_ref || 'main' }}
+        run: |
+          git init --initial-branch=upstream upstream
+          if [[ -f UPSTREAM_COMMIT && "$UPSTREAM_REF" == main ]]; then
+            UPSTREAM_REF=$(cat UPSTREAM_COMMIT)
+          fi
+          git -C upstream remote add origin \
+            'https://github.com/WCHSoftGroup/ch34x_mphsi_master_linux.git'
+          git -C upstream fetch --no-tags --depth=1 origin "$UPSTREAM_REF"
+          upstream_commit=$(git -C upstream rev-parse FETCH_HEAD)
+          test "$(git -C upstream ls-tree --name-only FETCH_HEAD)" = "$(printf '%s\n' README.md README_EN.md driver)" \
+            || { printf 'Unexpected upstream repository layout.\n' >&2; exit 1; }
+          git -C upstream checkout --detach FETCH_HEAD
+          printf 'UPSTREAM_COMMIT=%s\n' "$upstream_commit" >> "$GITHUB_ENV"
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential debhelper dh-dkms dpkg-dev lintian \
+            "linux-headers-$(uname -r)"
+
+      - name: Build deb
+        id: package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_COMMIT: ${{ env.UPSTREAM_COMMIT }}
+        run: |
+          scripts/build-deb.sh --source-dir upstream
+          upstream_commit=$(git -C upstream rev-parse HEAD)
+          test "$upstream_commit" = "$EXPECTED_COMMIT"
+          deb=$(find build -maxdepth 1 -type f -name '*_all.deb' -print -quit)
+          test -n "$deb"
+          version=$(dpkg-deb -f "$deb" Version)
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'upstream_commit=%s\n' "$upstream_commit" >> "$GITHUB_OUTPUT"
+          printf 'deb=%s\n' "$deb" >> "$GITHUB_OUTPUT"
+          printf 'deb_sha256=%s\n' "$(sha256sum "$deb" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          if gh api "repos/$GITHUB_REPOSITORY/releases/tags/dkms-$version" --silent 2>/dev/null; then
+            printf 'A release already exists for this upstream revision.\n'
+            printf 'changed=false\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'changed=true\n' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify the packaged source with DKMS
+        if: steps.package.outputs.changed == 'true'
+        run: scripts/verify-deb.sh "${{ steps.package.outputs.deb }}"
+
+      - name: Check package policy
+        if: steps.package.outputs.changed == 'true'
+        run: lintian --info "${{ steps.package.outputs.deb }}"
+
+      - name: Prepare checksums and release notes
+        if: steps.package.outputs.changed == 'true'
+        run: |
+          (cd build && sha256sum -- *.deb *.buildinfo *.changes > SHA256SUMS)
+          {
+            printf 'Upstream: [WCHSoftGroup/ch34x_mphsi_master_linux@%s](https://github.com/WCHSoftGroup/ch34x_mphsi_master_linux/commit/%s)\n\n' \
+              "${{ steps.package.outputs.upstream_commit }}" \
+              "${{ steps.package.outputs.upstream_commit }}"
+            printf 'Install on Ubuntu/Debian:\n\n```sh\nsudo apt update\nsudo apt install ./%s\n```\n\n' \
+              "$(basename -- "${{ steps.package.outputs.deb }}")"
+            printf 'Requires matching kernel headers and build tools. The module is rebuilt by DKMS after kernel upgrades.\n\n'
+            printf 'Verify downloads with the attached `SHA256SUMS`.\n'
+          } > build/RELEASE_NOTES.md
+
+      - name: Upload the workflow artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ch34x-mphsi-master-dkms-${{ steps.package.outputs.version }}
+          path: |
+            build/*.deb
+            build/*.buildinfo
+            build/*.changes
+            build/SHA256SUMS
+            build/RELEASE_NOTES.md
+          if-no-files-found: error
+          retention-days: 90
+
+  release:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download the verified build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: ch34x-mphsi-master-dkms-${{ needs.build.outputs.version }}
+          path: build
+
+      - name: Verify downloaded artifacts
+        run: |
+          cd build
+          sha256sum -c SHA256SUMS
+          test "$(dpkg-deb -f "${{ needs.build.outputs.deb }}" Version)" = "${{ needs.build.outputs.version }}"
+
+      - name: Create the GitHub release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: dkms-${{ needs.build.outputs.version }}
+          name: CH34x DKMS ${{ needs.build.outputs.version }}
+          body_path: build/RELEASE_NOTES.md
+          generate_release_notes: false
+          make_latest: true
+          files: |
+            build/*.deb
+            build/*.buildinfo
+            build/*.changes
+            build/SHA256SUMS

@@ -1,0 +1,9 @@
+[Unit]
+Description=Install the latest CH34x DKMS driver release
+Documentation=https://github.com/Mkiring/ch34x_mphsi_master_linux/blob/main/PACKAGING.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ch34x-update

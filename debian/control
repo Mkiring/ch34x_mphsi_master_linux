@@ -1,0 +1,20 @@
+Source: ch34x-mphsi-master-dkms
+Section: kernel
+Priority: optional
+Maintainer: Mkirin <haohao.wang@seeed.cc>
+Build-Depends: debhelper-compat (= 13), dh-dkms
+Standards-Version: 4.6.2
+Homepage: https://github.com/WCHSoftGroup/ch34x_mphsi_master_linux
+Rules-Requires-Root: no
+
+Package: ch34x-mphsi-master-dkms
+Architecture: all
+Depends: ${misc:Depends}, dkms (>= 2.2.0.3), gcc, kmod, make
+Recommends: linux-headers-generic | linux-headers-amd64 | linux-headers
+Description: DKMS driver for WCH CH34x USB to SPI/I2C/GPIO adapters
+ Kernel driver for WCH CH347, CH341, CH339 and CH9341 USB adapters.
+ It provides SPI and I2C controllers, GPIOs and GPIO interrupts.
+ .
+ The module is built for the running and newest installed kernels when this
+ package is installed, and is rebuilt automatically after kernel upgrades.
+ Matching kernel headers and build tools are required.

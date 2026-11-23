@@ -1,0 +1,10 @@
+[Unit]
+Description=Check daily for a new CH34x DKMS driver release
+
+[Timer]
+OnCalendar=*-*-* 10:17:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target
